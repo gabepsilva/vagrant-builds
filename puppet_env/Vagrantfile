@@ -1,0 +1,65 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+
+Vagrant.configure("2") do |config|
+
+  config.vm.define "master" do |master|
+  master.vm.box = "centos/7"
+  master.vm.hostname = "puppet"
+  config.vm.network "private_network", type: "dhcp"
+
+  config.vm.provider "virtualbox" do |vb|
+    # vb.gui = true
+    vb.cpus = 2
+    vb.memory = "3072"
+    vb.name = "pup-master"
+  end
+
+  if Vagrant.has_plugin?("vagrant-proxyconf")
+    # config.proxy.http     = "http://proxy.com:8080"
+    # config.proxy.https    = "http://proxy.com:8080"
+    # config.proxy.no_proxy = "localhost,127.0.0.0/8"
+    end
+
+    config.vm.provision "shell", inline: <<-SHELL
+      yum -y update
+      rpm -Uvh https://yum.puppetlabs.com/puppet5/puppet5-release-el-7.noarch.rpm
+      yum install -y puppetserver
+      systemctl start puppetserver
+      systemctl enable puppetserver
+    SHELL
+  end
+
+  ##### CONFIGURE NODES #####
+
+  (1..2).each do |i|
+      config.vm.define "pup-node-#{i}" do |node|
+      node.vm.box = "centos/7"
+      node.vm.hostname = "pup-node-#{i}"
+      node.vm.network "private_network", type: "dhcp"
+
+      config.vm.provider "virtualbox" do |vb|
+        # vb.gui = true
+        vb.cpus = 2
+        vb.memory = "1024"
+        vb.name = "pup-node-#{i}"
+      end
+
+      if Vagrant.has_plugin?("vagrant-proxyconf")
+        # node.proxy.http     = "http://proxy.com:8080"
+        # node.proxy.https    = "http://proxy.com:8080"
+        # node.proxy.no_proxy = "localhost,127.0.0.0/8"
+      end
+
+      config.vm.provision "shell", inline: <<-SHELL
+        yum -y update
+        rpm -Uvh https://yum.puppetlabs.com/puppet5/puppet5-release-el-7.noarch.rpm
+        yum install -y puppet-agent
+        /opt/puppetlabs/bin/puppet resource service puppet ensure=running enable=true
+        #/opt/puppetlabs/bin/puppet agent --test
+      SHELL
+    
+    end
+  end
+end
